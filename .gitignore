@@ -1,0 +1,41 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# ─── Virtual environment ──────────────────────────────
+.venv/
+.venv/
+
+# ─── Environment / secrets ────────────────────────────
+.env
+!.env.example
+
+# ─── IDE / editors ────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ─── Docker ───────────────────────────────────────────
+docker-data/
+
+# ─── Pytest / coverage ───────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# ─── Mypy / Ruff ─────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+
+# ─── Logs ─────────────────────────────────────────────────
+*.log
