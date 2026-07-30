@@ -1,0 +1,1 @@
+from .travel_goal import TravelGoal as TravelGoal
