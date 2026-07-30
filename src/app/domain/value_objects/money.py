@@ -7,8 +7,7 @@ immutable, self-validating, and currency-aware.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 # Supported currencies (ISO 4217)
 # Adding a new currency is a single-line change. No switch statements.
@@ -34,7 +33,7 @@ class Money:
     >>> Money("100000.00", "COP") + Money("50000.00", "COP")
     Money('150000.00', 'COP')
 
-    Usage::
+    Usage:
 
         price = Money("29000", "COP")
         tax   = Money("4000", "COP")
@@ -58,9 +57,9 @@ class Money:
             amount_str = amount.strip()
             try:
                 parsed = Decimal(amount_str)
-            except InvalidOperation:
-                raise MoneyError(f"Cannot parse amount: {amount!r}")
-        elif isinstance(amount, bool) or isinstance(amount, float):
+            except InvalidOperation as err:
+                raise MoneyError(f"Cannot parse amount: {amount!r}") from err
+        elif isinstance(amount, (bool, float)):
             raise MoneyError(f"Float and bool are not allowed: {amount!r}")
         elif isinstance(amount, int):
             parsed = Decimal(str(amount))
@@ -70,7 +69,11 @@ class Money:
             raise MoneyError(f"Unsupported amount type: {type(amount).__name__}")
 
         decimals = CURRENCIES[currency]
-        rounded = parsed.quantize(Decimal("0." + "0" * decimals) if decimals else Decimal("1"), rounding=ROUND_HALF_UP)
+        rounded = parsed.quantize(
+            Decimal("0." + "0" * decimals) 
+            if decimals 
+            else Decimal("1"), 
+            rounding=ROUND_HALF_UP)
 
         # Store via object.__setattr__ because the dataclass is frozen
         object.__setattr__(self, "amount", rounded)

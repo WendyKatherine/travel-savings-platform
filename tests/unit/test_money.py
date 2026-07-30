@@ -1,6 +1,9 @@
-import pytest
 from decimal import Decimal
-from app.domain.money import Money, MoneyError
+
+import pytest
+
+from app.domain.value_objects.money import Money, MoneyError
+
 
 # Successful cases of creation and formating
 def test_money_creation_from_string_int_and_decimal():
@@ -26,7 +29,7 @@ def test_money_is_frozen_immutable():
     """Verify that the Value Object is immutable (frozen dataclass)."""
     m = Money("50000", "COP")
 
-    with pytest.raises(Exception):
+    with pytest.raises(AttributeError):
         m.amount = Decimal("99999")
 
 def test_money_addition_same_currency():
@@ -63,7 +66,7 @@ def test_money_unsupported_currency():
 ])
 def test_money_invalid_string_format_raises_error(invalid_amount):
     """Throws MoneyError if the string format does not match the regex."""
-    with pytest.raises(MoneyError, match="Invalid amount format|Cannot parse amount"):
+    with pytest.raises(MoneyError, match=r"Invalid amount format|Cannot parse amount"):
         Money(invalid_amount, "COP")
 
 def test_money_unsupported_type_raises_error():
@@ -71,7 +74,7 @@ def test_money_unsupported_type_raises_error():
     with pytest.raises(MoneyError, match="Unsupported amount type"):
         Money([100000], "COP")  # type: ignore
 
-@pytest.mark.parametrize("bad value", [
+@pytest.mark.parametrize("bad_value", [
     100.50,
     True,
     False
