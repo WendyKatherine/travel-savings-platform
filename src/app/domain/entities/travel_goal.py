@@ -8,11 +8,13 @@ and a lifecycle status. The saved balance is calculated, not stored.
 In Clean Architecture, TravelGoal is a domain entity:
 self-validating, identity-driven (UUID), and money-aware.
 """
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
+from app.domain.entities.transaction import Kind, Transaction
 from app.domain.value_objects.money import Money
 
 
@@ -67,6 +69,9 @@ class TravelGoal:
         if self.target <= zero:
             raise ValueError("The 'target' field must be a positive number") from None
 
+        # Mark construction complete: from here on, identity fields are frozen
+        object.__setattr__(self, "_initialized", True)
+
     @classmethod
     def create(
         cls,
@@ -88,3 +93,29 @@ class TravelGoal:
             status=Status.ACTIVE,
             created_at=created_at,
         )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """
+        Block reassignment of identity fields after construction.
+
+        id and created_at are set once at creation; the ledger rules
+        say they never change. Other fields stay mutable.
+        """
+        if getattr(self, "_initialized", False) and name in {"id", "created_at"}:
+            raise AttributeError(f"{name} is immutable")
+        super().__setattr__(name, value)
+
+    def balance(self, transactions: Sequence[Transaction]) -> Money:
+        """
+        Calculate the current saved balance.
+
+        Iterates over the goal's transactions and sums the amount
+        of each DEPOSIT. Returns zero when there are no transactions.
+        Currency consistency is enforced by Money's arithmetic guards.
+        """
+        result = Money("0", self.target.currency)
+        for txn in transactions:
+            if txn.kind == Kind.DEPOSIT:
+                result += txn.amount
+                
+        return result
