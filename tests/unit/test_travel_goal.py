@@ -43,10 +43,13 @@ class TestTravelGoalInvariants:
                 created_at=datetime.now(UTC),
             )
 
-    @pytest.mark.parametrize("non_positive_target", [
-        Money("0", "COP"),
-        Money("-1", "COP"),
-    ])
+    @pytest.mark.parametrize(
+        "non_positive_target",
+        [
+            Money("0", "COP"),
+            Money("-1", "COP"),
+        ],
+    )
     def test_creation_for_invariants_target_positive_number(self, non_positive_target):
         """
         Raises ValueError when target is zero or negative.

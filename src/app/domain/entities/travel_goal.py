@@ -8,6 +8,7 @@ and a lifecycle status. The saved balance is calculated, not stored.
 In Clean Architecture, TravelGoal is a domain entity:
 self-validating, identity-driven (UUID), and money-aware.
 """
+
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -54,6 +55,7 @@ class TravelGoal:
         )
         print(goal.status)  # Status.ACTIVE
     """
+
     id: UUID
     owner_id: str
     destination: str
@@ -61,7 +63,7 @@ class TravelGoal:
     created_at: datetime
     status: Status = field(default=Status.ACTIVE)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.destination or not self.destination.strip():
             raise ValueError("The 'destination' field cannot be empty.") from None
 
@@ -74,12 +76,7 @@ class TravelGoal:
 
     @classmethod
     def create(
-        cls,
-        id: UUID,
-        owner_id: str,
-        destination: str,
-        target: Money,
-        created_at: datetime
+        cls, id: UUID, owner_id: str, destination: str, target: Money, created_at: datetime
     ) -> "TravelGoal":
         """
         Factory method. id and created_at are generated at the boundary
@@ -117,5 +114,5 @@ class TravelGoal:
         for txn in transactions:
             if txn.kind == Kind.DEPOSIT:
                 result += txn.amount
-                
+
         return result

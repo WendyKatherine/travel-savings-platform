@@ -6,6 +6,7 @@ travel goals. It defines WHAT can be done, never HOW:
 implementations live in infrastructure (in-memory fake for tests,
 async SQLAlchemy/Postgres in production).
 """
+
 from abc import ABC, abstractmethod
 from uuid import UUID
 
@@ -24,7 +25,6 @@ class TravelGoalRepository(ABC):
         already validated) and stores it. Returns nothing.
         """
         ...
-        
 
     @abstractmethod
     async def get_by_id(self, goal_id: UUID) -> TravelGoal | None:
