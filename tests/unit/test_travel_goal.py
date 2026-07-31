@@ -92,6 +92,15 @@ class TestTravelGoalImmutability:
         with pytest.raises(AttributeError, match="created_at is immutable"):
             goal.created_at = datetime.now(UTC)
 
+    def test_owner_id_cannot_be_reassigned(self):
+        """
+        Reassigning owner_id after creation raises AttributeError.
+        """
+        goal = self._make_goal()
+
+        with pytest.raises(AttributeError, match="owner_id is immutable"):
+            goal.owner_id = "another-user"
+
     def test_other_fields_remain_mutable(self):
         """
         Non-identity fields (e.g. destination) can still be updated.

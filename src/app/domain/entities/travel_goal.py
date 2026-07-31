@@ -98,10 +98,10 @@ class TravelGoal:
         """
         Block reassignment of identity fields after construction.
 
-        id and created_at are set once at creation; the ledger rules
-        say they never change. Other fields stay mutable.
+        id, owner_id and created_at are set once at creation; the ledger
+        rules say they never change. Other fields stay mutable.
         """
-        if getattr(self, "_initialized", False) and name in {"id", "created_at"}:
+        if getattr(self, "_initialized", False) and name in {"id", "owner_id", "created_at"}:
             raise AttributeError(f"{name} is immutable")
         super().__setattr__(name, value)
 
