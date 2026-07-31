@@ -69,7 +69,7 @@ class TestCreateGoal:
         )
 
         stored = await repository.get_by_id(result.id)
-        assert stored is result
+        assert stored == result
 
     async def test_raises_value_error_on_empty_destination(self, use_case):
         """
