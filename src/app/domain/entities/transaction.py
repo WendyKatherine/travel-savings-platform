@@ -6,6 +6,7 @@ Each line in the ledger is frozen after creation — never edited, never deleted
 Amount is always positive; the direction (deposit, etc.) is carried by kind,
 not by the sign of the amount. This makes auditing simpler.
 """
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -16,6 +17,7 @@ from app.domain.value_objects.money import Money
 
 class Kind(Enum):
     """Direction of a ledger movement."""
+
     DEPOSIT = "DEPOSIT"
 
 
@@ -50,6 +52,7 @@ class Transaction:
             kind=Kind.DEPOSIT,
         )
     """
+
     id: UUID
     goal_id: UUID
     amount: Money
@@ -57,7 +60,7 @@ class Transaction:
     recorded_by: str
     kind: Kind = field(default=Kind.DEPOSIT)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         zero = Money("0", self.amount.currency)
         if self.amount <= zero:
             raise ValueError("The 'amount' field must be a positive number") from None

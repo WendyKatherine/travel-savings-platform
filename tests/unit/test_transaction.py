@@ -25,13 +25,17 @@ class TestTransactionCreation:
 
         assert transaction.kind == Kind.DEPOSIT
 
+
 class TestTransactionInvariants:
     """Tests for domain invariants (validation at creation)."""
 
-    @pytest.mark.parametrize("non_positive_amount", [
-        Money("0", "COP"),
-        Money("-1", "COP"),
-    ])
+    @pytest.mark.parametrize(
+        "non_positive_amount",
+        [
+            Money("0", "COP"),
+            Money("-1", "COP"),
+        ],
+    )
     def test_creation_for_invariants_amount_positive(self, non_positive_amount):
         """
         Raises ValueError when amount is zero or negative.
@@ -44,6 +48,7 @@ class TestTransactionInvariants:
                 recorded_at=datetime.now(UTC),
                 recorded_by="user-example",
             )
+
 
 class TestTransactionFrozen:
     """Verifies Transaction is truly immutable (frozen dataclass)."""

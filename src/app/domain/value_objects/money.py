@@ -4,6 +4,7 @@ money.py — Value object for money with currency.
 In Clean Architecture, Money is a domain value object:
 immutable, self-validating, and currency-aware.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,9 +13,10 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 # Supported currencies (ISO 4217)
 # Adding a new currency is a single-line change. No switch statements.
 CURRENCIES: dict[str, int] = {
-    "COP": 2,   # Colombian Peso → 2 decimals
-    "USD": 2,   # US Dollar      → 2 decimals
+    "COP": 2,  # Colombian Peso → 2 decimals
+    "USD": 2,  # US Dollar      → 2 decimals
 }
+
 
 # Domain exception
 class MoneyError(Exception):
@@ -70,10 +72,8 @@ class Money:
 
         decimals = CURRENCIES[currency]
         rounded = parsed.quantize(
-            Decimal("0." + "0" * decimals) 
-            if decimals 
-            else Decimal("1"), 
-            rounding=ROUND_HALF_UP)
+            Decimal("0." + "0" * decimals) if decimals else Decimal("1"), rounding=ROUND_HALF_UP
+        )
 
         # Store via object.__setattr__ because the dataclass is frozen
         object.__setattr__(self, "amount", rounded)
