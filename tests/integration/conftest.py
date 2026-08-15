@@ -9,18 +9,19 @@ reproducible - the dev DB is never touched.
 """
 
 import os
+from collections.abc import AsyncIterator, Iterator
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
 from app.infrastructure.config.settings import get_settings
 
 
 @pytest.fixture(scope="session")
-def database_url() -> str:
+def database_url() -> Iterator[str]:
     """Start an ephemeral Postgres, migrate it, and yield its async URL."""
     original_url = os.environ.get("DATABASE_URL")
     with PostgresContainer("postgres:16-alpine") as postgres:
@@ -42,10 +43,26 @@ def database_url() -> str:
 
 
 @pytest.fixture
-async def session(database_url: str):
-    """Async SQLAlchemy session bound to the migrated container database."""
+async def session(database_url: str) -> AsyncIterator[AsyncSession]:
+    """Async session isolated per test.
+
+    Each test runs inside its own transaction: session commits become
+    savepoint releases (join_transaction_mode="create_savepoint"), and the
+    outer transaction is rolled back at teardown - so data committed by one
+    test never leaks into the next one.
+    """
     engine = create_async_engine(database_url)
-    async_session = async_sessionmaker(engine, expire_on_commit=False)
-    async with async_session() as s:
-        yield s
-    await engine.dispose()
+    connection = await engine.connect()
+    transaction = await connection.begin()
+    async_session = async_sessionmaker(
+        bind=connection,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+    try:
+        async with async_session() as s:
+            yield s
+    finally:
+        await transaction.rollback()
+        await connection.close()
+        await engine.dispose()
