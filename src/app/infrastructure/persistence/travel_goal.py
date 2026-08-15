@@ -11,6 +11,7 @@ Design rules:
 - This module must never import from ``app.domain``: the repository
   (infrastructure) is the only bridge between the two worlds.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
@@ -19,6 +20,7 @@ from sqlalchemy import DateTime, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.persistence.base import Base
+
 
 class TravelGoalModel(Base):
     """Persistence counterpart of the domain ``TravelGoal``.
@@ -35,13 +37,13 @@ class TravelGoalModel(Base):
     - ``status``: string form of ``Status`` (e.g. ``"ACTIVE"``); the
       repository maps it back to the enum.
     """
-    __tablename__="travel_goals"
+
+    __tablename__ = "travel_goals"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
-    owner_id: Mapped[str] 
+    owner_id: Mapped[str]
     destination: Mapped[str]
     target_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     target_currency: Mapped[str] = mapped_column(String(3))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str]
-    

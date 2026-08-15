@@ -53,6 +53,9 @@ plugins = ["pydantic.mypy"]
 
 # ---- Pytest ----
 [tool.pytest.ini_options]
+markers = [
+    "integration: tests that need a real Postgres via testcontainers",
+]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]

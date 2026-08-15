@@ -19,6 +19,7 @@ POSTGRES_NAMING_CONVENTION = {
 
 metadata_obj = MetaData(naming_convention=POSTGRES_NAMING_CONVENTION)
 
+
 class Base(DeclarativeBase):
     """Declarative base for the persistence layer.
 
