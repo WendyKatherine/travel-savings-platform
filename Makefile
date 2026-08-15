@@ -1,4 +1,4 @@
-.PHONY: install up down logs run migrate lint type test check
+.PHONY: install up down logs run migrate lint fix type test check
 
 install:      ## Install dependencies (incl. dev)
 	uv sync --extra dev
@@ -21,6 +21,10 @@ migrate:      ## Apply DB migrations
 lint:         ## Lint + format check
 	uv run ruff check .
 	uv run ruff format --check .
+
+fix:          ## Auto-fix lint issues + format
+	uv run ruff check . --fix
+	uv run ruff format .
 
 type:         ## Static type checking
 	uv run mypy src

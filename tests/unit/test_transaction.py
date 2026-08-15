@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.domain.entities.transaction import Kind, Transaction
+from app.domain.entities.transaction import Kind, Transaction, TransactionError
 from app.domain.value_objects.money import Money
 
 
@@ -38,9 +38,9 @@ class TestTransactionInvariants:
     )
     def test_creation_for_invariants_amount_positive(self, non_positive_amount):
         """
-        Raises ValueError when amount is zero or negative.
+        Raises TransactionError when amount is zero or negative.
         """
-        with pytest.raises(ValueError, match=r"The 'amount' field must be a positive number"):
+        with pytest.raises(TransactionError, match=r"The 'amount' field must be a positive number"):
             Transaction.create(
                 id=uuid4(),
                 goal_id=UUID("123e4567-e89b-12d3-a456-426614174000"),

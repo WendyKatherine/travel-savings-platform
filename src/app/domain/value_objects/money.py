@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
+from app.domain.exceptions import DomainError
+
 # Supported currencies (ISO 4217)
 # Adding a new currency is a single-line change. No switch statements.
 CURRENCIES: dict[str, int] = {
@@ -19,7 +21,7 @@ CURRENCIES: dict[str, int] = {
 
 
 # Domain exception
-class MoneyError(Exception):
+class MoneyError(DomainError):
     """Raised when an invalid money operation is attempted."""
 
 
