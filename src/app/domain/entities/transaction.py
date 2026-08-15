@@ -12,7 +12,12 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
+from app.domain.exceptions import DomainError
 from app.domain.value_objects.money import Money
+
+
+class TransactionError(DomainError):
+    """Raised when a Transaction invariant is violated."""
 
 
 class Kind(Enum):
@@ -63,7 +68,7 @@ class Transaction:
     def __post_init__(self) -> None:
         zero = Money("0", self.amount.currency)
         if self.amount <= zero:
-            raise ValueError("The 'amount' field must be a positive number") from None
+            raise TransactionError("The 'amount' field must be a positive number") from None
 
     @classmethod
     def create(

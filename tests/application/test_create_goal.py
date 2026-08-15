@@ -13,7 +13,7 @@ from uuid import UUID
 import pytest
 
 from app.application.use_cases.create_goal import CreateGoalUseCase
-from app.domain.entities.travel_goal import Status, TravelGoal
+from app.domain.entities.travel_goal import Status, TravelGoal, TravelGoalError
 from app.domain.value_objects.money import Money
 from tests.fakes.in_memory_travel_goal_repository import InMemoryTravelGoalRepository
 
@@ -74,8 +74,8 @@ class TestCreateGoal:
     async def test_raises_value_error_on_empty_destination(self, use_case):
         """
         Domain invariants are not swallowed: an empty destination
-        makes the entity raise ValueError, and the use case lets it
+        makes the entity raise TravelGoalError, and the use case lets it
         propagate to the caller.
         """
-        with pytest.raises(ValueError, match="destination"):
+        with pytest.raises(TravelGoalError, match="destination"):
             await use_case.execute(owner_id=OWNER_ID, destination="", target=TARGET)

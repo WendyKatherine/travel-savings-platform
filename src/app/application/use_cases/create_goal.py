@@ -50,9 +50,9 @@ class CreateGoalUseCase:
             The created TravelGoal.
 
         Raises:
-            ValueError:   Propagated from the entity when a domain
-                          invariant is violated (e.g. empty destination
-                          or non-positive target).
+            TravelGoalError: Propagated from the entity when a domain
+                invariant is violated (e.g. empty destination or
+                non-positive target).
         """
         goal_id = uuid4()
         created_at = datetime.now(UTC)

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.domain.entities.transaction import Transaction
-from app.domain.entities.travel_goal import Status, TravelGoal
+from app.domain.entities.travel_goal import Status, TravelGoal, TravelGoalError
 from app.domain.value_objects.money import Money, MoneyError
 
 
@@ -32,9 +32,9 @@ class TestTravelGoalInvariants:
 
     def test_creation_for_invariants_destination_empty(self):
         """
-        Raises ValueError when destination is an empty string.
+        Raises TravelGoalError when destination is an empty string.
         """
-        with pytest.raises(ValueError, match=r"The 'destination' field cannot be empty."):
+        with pytest.raises(TravelGoalError, match=r"The 'destination' field cannot be empty."):
             TravelGoal.create(
                 id=uuid4(),
                 owner_id="user-123",
@@ -52,9 +52,9 @@ class TestTravelGoalInvariants:
     )
     def test_creation_for_invariants_target_positive_number(self, non_positive_target):
         """
-        Raises ValueError when target is zero or negative.
+        Raises TravelGoalError when target is zero or negative.
         """
-        with pytest.raises(ValueError, match="The 'target' field must be a positive number"):
+        with pytest.raises(TravelGoalError, match="The 'target' field must be a positive number"):
             TravelGoal.create(
                 id=uuid4(),
                 owner_id="user-123",

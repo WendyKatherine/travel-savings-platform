@@ -16,7 +16,12 @@ from enum import Enum
 from uuid import UUID
 
 from app.domain.entities.transaction import Kind, Transaction
+from app.domain.exceptions import DomainError
 from app.domain.value_objects.money import Money
+
+
+class TravelGoalError(DomainError):
+    """Raised when a TravelGoal invariant is violated."""
 
 
 class Status(Enum):
@@ -65,11 +70,11 @@ class TravelGoal:
 
     def __post_init__(self) -> None:
         if not self.destination or not self.destination.strip():
-            raise ValueError("The 'destination' field cannot be empty.") from None
+            raise TravelGoalError("The 'destination' field cannot be empty.") from None
 
         zero = Money("0", self.target.currency)
         if self.target <= zero:
-            raise ValueError("The 'target' field must be a positive number") from None
+            raise TravelGoalError("The 'target' field must be a positive number") from None
 
         # Mark construction complete: from here on, identity fields are frozen
         object.__setattr__(self, "_initialized", True)
