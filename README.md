@@ -4,9 +4,14 @@ Transactional backend for a programmed-savings / installment platform applied to
 travel packages. Built as a **modular monolith** following **Clean Architecture**,
 with an append-only financial ledger as the source of truth.
 
-> Portfolio project. The engineering goal is depth in production-grade backend
-> patterns: immutable ledger, durable idempotency, transactional consistency,
-> passwordless auth, background processing and observability.
+> Real client product. Programmed savings toward travel packages, built for
+> production: immutable ledger, durable idempotency, transactional consistency
+> and observability.
+
+## Context
+
+Backend for a programmed-savings product that lets customers save
+toward travel packages in installments.
 
 ## Status
 
