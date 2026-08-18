@@ -13,7 +13,7 @@ the flow under test is identical to production — including commit/rollback.
 
 from collections.abc import AsyncGenerator
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -120,3 +120,38 @@ class TestCreateGoalApi:
 
         result = await session.execute(select(func.count()).select_from(TravelGoalModel))
         assert result.scalar_one() == 0
+
+
+class TestGetGoalByIdApi:
+    """GET /goals/{goal_id} through the HTTP layer — status codes and payloads."""
+
+    async def test_gets_goal_by_id_returns_200_with_public_payload(
+        self, client: AsyncClient
+    ) -> None:
+        """A created goal is retrievable: GET returns 200 and the public payload."""
+        created = await client.post("/goals", json=make_payload())
+        goal_id = created.json()["id"]
+
+        response = await client.get(f"/goals/{goal_id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == goal_id
+        assert data["destination"] == "Cartagena"
+        assert data["target"] == "COP 1,500,000.00"
+        assert data["status"] == "ACTIVE"
+
+    async def test_returns_404_when_goal_does_not_exist(self, client: AsyncClient) -> None:
+        """A valid UUID with no matching goal returns 404, never 500."""
+        goal_id = uuid4()
+
+        response = await client.get(f"/goals/{goal_id}")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == f"Goal {goal_id} not found"
+
+    async def test_returns_422_when_id_is_not_a_valid_uuid(self, client: AsyncClient) -> None:
+        """A malformed id is rejected by FastAPI's path validation with 422."""
+        response = await client.get("/goals/not-a-uuid")
+
+        assert response.status_code == 422
