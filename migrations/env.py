@@ -13,6 +13,10 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.infrastructure.config.settings import get_settings
+
+# Import the ORM models so Alembic autogenerate sees every table on
+# Base.metadata (nothing else imports them at migration time).
+from app.infrastructure.persistence import transaction, travel_goal  # noqa: F401
 from app.infrastructure.persistence.base import Base
 
 config = context.config
