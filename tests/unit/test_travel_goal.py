@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.domain.entities.transaction import Transaction
+from app.domain.entities.transaction import Kind, Transaction
 from app.domain.entities.travel_goal import Status, TravelGoal, TravelGoalError
 from app.domain.value_objects.money import Money, MoneyError
 
@@ -221,3 +221,80 @@ class TestTravelGoalBalance:
 
         assert goal == goal_before
         assert transactions == txns_before
+
+
+class TestTravelGoalRecordDeposit:
+    """Tests for the record_deposit behavior."""
+
+    def _make_goal(self) -> TravelGoal:
+        """Helper: an ACTIVE goal with a COP target."""
+        return TravelGoal.create(
+            id=uuid4(),
+            owner_id="user-123",
+            destination="Cartagena",
+            target=Money("1500000", "COP"),
+            created_at=datetime.now(UTC),
+        )
+
+    def test_valid_deposit_returns_transaction(self):
+        """
+        A valid deposit returns a DEPOSIT Transaction bound to the goal.
+        """
+        goal = self._make_goal()
+        txn_id = uuid4()
+        recorded_at = datetime.now(UTC)
+
+        txn = goal.record_deposit(
+            Money("50000", "COP"),
+            id=txn_id,
+            recorded_at=recorded_at,
+            recorded_by="editor-42",
+        )
+
+        assert txn.kind == Kind.DEPOSIT
+        assert txn.goal_id == goal.id
+        assert txn.amount == Money("50000", "COP")
+        assert txn.id == txn_id
+        assert txn.recorded_at == recorded_at
+        assert txn.recorded_by == "editor-42"
+
+    def test_deposit_on_non_active_goal_raises(self):
+        """
+        Depositing into a non-ACTIVE goal raises TravelGoalError.
+        """
+        goal = TravelGoal(
+            id=uuid4(),
+            owner_id="user-123",
+            destination="Cartagena",
+            target=Money("1500000", "COP"),
+            created_at=datetime.now(UTC),
+            status=Status.CLOSED,
+        )
+
+        with pytest.raises(TravelGoalError, match="non-active"):
+            goal.record_deposit(
+                Money("50000", "COP"),
+                id=uuid4(),
+                recorded_at=datetime.now(UTC),
+                recorded_by="editor-42",
+            )
+
+    def test_deposit_different_currency(self):
+        """
+        A deposit in a currency different from the goal's raises TravelGoalError.
+        """
+        goal = TravelGoal(
+            id=uuid4(),
+            owner_id="user-123",
+            destination="Cartagena",
+            target=Money("1500000", "COP"),
+            created_at=datetime.now(UTC),
+            status=Status.ACTIVE,
+        )
+        with pytest.raises(TravelGoalError, match="currency"):
+            goal.record_deposit(
+                Money("50000", "USD"),
+                id=uuid4(),
+                recorded_at=datetime.now(UTC),
+                recorded_by="editor-42",
+            )

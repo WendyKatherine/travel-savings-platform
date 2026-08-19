@@ -26,6 +26,7 @@ class TravelGoalError(DomainError):
 
 class Status(Enum):
     ACTIVE = "ACTIVE"
+    CLOSED = "CLOSED"
 
 
 @dataclass
@@ -121,3 +122,45 @@ class TravelGoal:
                 result += txn.amount
 
         return result
+
+    def record_deposit(
+        self,
+        amount: Money,
+        *,
+        id: UUID,
+        recorded_at: datetime,
+        recorded_by: str,
+    ) -> Transaction:
+        """
+        Validate and record a deposit against this goal.
+
+        Produces a new immutable Transaction (kind DEPOSIT). The goal
+        itself is not mutated — the balance is always derived from the
+        ledger, never stored.
+
+        Args:
+            amount:       Positive Money amount to deposit.
+            id:           Transaction identity, generated at the boundary.
+            recorded_at:  Registration timestamp (UTC), generated at the boundary.
+            recorded_by:  Editor id who registered the deposit (audit trail).
+
+        Returns:
+            A new DEPOSIT Transaction bound to this goal.
+
+        Raises:
+            TravelGoalError: If the goal is not ACTIVE, or the deposit
+                currency does not match the goal's currency.
+        """
+        if self.status is not Status.ACTIVE:
+            raise TravelGoalError("cannot record a deposit on a non-active goal")
+
+        if amount.currency != self.target.currency:
+            raise TravelGoalError("deposit currency does not match goal currency")
+
+        return Transaction.create(
+            id=id,
+            goal_id=self.id,
+            amount=amount,
+            recorded_at=recorded_at,
+            recorded_by=recorded_by,
+        )
