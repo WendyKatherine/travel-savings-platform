@@ -3,12 +3,14 @@ record_deposit.py — Use case that orchestrates recording a deposit.
 
 Sits between the interface layer (endpoint) and the persistence ports.
 It owns the boundary: generates the transaction's identity and timestamp,
-delegates validation to the domain aggregate, and persists the ledger
-entry through the ports.
+receives the idempotency key from the caller, delegates validation to the
+domain aggregate, and persists the ledger entry through the ports.
 """
 
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
+
+from sqlalchemy.exc import IntegrityError
 
 from app.application.ports.transaction_repository import TransactionRepository
 from app.application.ports.travel_goal_repository import TravelGoalRepository
@@ -43,14 +45,18 @@ class RecordDepositUseCase:
         goal_id: UUID,
         amount: Money,
         recorded_by: str,
+        idempotency_key: UUID,
     ) -> Transaction | None:
         """
         Record a deposit and persist it as a ledger entry.
 
         Args:
-            goal_id:     Id of the goal receiving the deposit.
-            amount:      Positive Money amount to deposit.
-            recorded_by: Editor id who registered the deposit (audit trail).
+            goal_id:         Id of the goal receiving the deposit.
+            amount:          Positive Money amount to deposit.
+            recorded_by:     Editor id who registered the deposit (audit trail).
+            idempotency_key: Key that makes the deposit retry-safe. On a
+                replay (same key twice) the stored entry is returned
+                instead of inserting a duplicate.
 
         Returns:
             The created Transaction (kind DEPOSIT), or None when no goal
@@ -73,6 +79,9 @@ class RecordDepositUseCase:
             recorded_at=recorded_at,
             recorded_by=recorded_by,
         )
+        try:
+            await self.transaction_port.save(transaction, idempotency_key)
+        except IntegrityError:
+            return await self.transaction_port.get_by_idempotency_key(idempotency_key)
 
-        await self.transaction_port.save(transaction)
         return transaction
