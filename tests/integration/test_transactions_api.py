@@ -9,7 +9,12 @@ Same wiring as test_goals_api.py: the endpoint still asks for
 get_db_session, but app.dependency_overrides replaces it with the conftest
 session (bound to an ephemeral testcontainers Postgres). The conftest runs
 Alembic migrations against that database, so this file also exercises the
-transactions migration (table + FK to travel_goals).
+transactions migrations (table + FK + UNIQUE idempotency_key).
+
+The Idempotency-Key header is required by the endpoint, so every request
+sends one; TestIdempotency exercises the durable idempotency guarantee
+against the real UNIQUE constraint (the part the in-memory fake cannot
+simulate).
 """
 
 from collections.abc import AsyncGenerator
@@ -17,7 +22,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,6 +54,26 @@ def make_deposit_payload(**overrides: str) -> dict[str, str]:
     }
     payload.update(overrides)
     return payload
+
+
+def deposit_headers(key: str | None = None) -> dict[str, str]:
+    """Headers for a deposit request; a fresh key when none is given."""
+    return {"Idempotency-Key": key or str(uuid4())}
+
+
+async def post_deposit(
+    client: AsyncClient,
+    goal_id: str,
+    *,
+    headers: dict[str, str] | None = None,
+    **overrides: str,
+) -> Response:
+    """POST a deposit against a goal, sending a valid Idempotency-Key."""
+    return await client.post(
+        f"/goals/{goal_id}/deposits",
+        json=make_deposit_payload(**overrides),
+        headers=headers or deposit_headers(),
+    )
 
 
 @pytest.fixture
@@ -89,7 +114,7 @@ class TestRecordDepositApi:
         created = await client.post("/goals", json=make_goal_payload())
         goal_id = created.json()["id"]
 
-        response = await client.post(f"/goals/{goal_id}/deposits", json=make_deposit_payload())
+        response = await post_deposit(client, goal_id)
 
         assert response.status_code == 201
         data = response.json()
@@ -106,7 +131,7 @@ class TestRecordDepositApi:
         created = await client.post("/goals", json=make_goal_payload())
         goal_id = created.json()["id"]
 
-        response = await client.post(f"/goals/{goal_id}/deposits", json=make_deposit_payload())
+        response = await post_deposit(client, goal_id)
         txn_id = response.json()["id"]
 
         result = await session.execute(
@@ -123,7 +148,7 @@ class TestRecordDepositApi:
         """A valid UUID with no matching goal returns 404, never 500."""
         goal_id = uuid4()
 
-        response = await client.post(f"/goals/{goal_id}/deposits", json=make_deposit_payload())
+        response = await post_deposit(client, str(goal_id))
 
         assert response.status_code == 404
         assert response.json()["detail"] == f"Goal {goal_id} not found"
@@ -133,9 +158,7 @@ class TestRecordDepositApi:
         created = await client.post("/goals", json=make_goal_payload())
         goal_id = created.json()["id"]
 
-        response = await client.post(
-            f"/goals/{goal_id}/deposits", json=make_deposit_payload(currency="USD")
-        )
+        response = await post_deposit(client, goal_id, currency="USD")
 
         assert response.status_code == 400
         assert "currency" in response.json()["detail"]
@@ -145,9 +168,7 @@ class TestRecordDepositApi:
         created = await client.post("/goals", json=make_goal_payload())
         goal_id = created.json()["id"]
 
-        response = await client.post(
-            f"/goals/{goal_id}/deposits", json=make_deposit_payload(amount="0")
-        )
+        response = await post_deposit(client, goal_id, amount="0")
 
         assert response.status_code == 400
         assert "positive" in response.json()["detail"]
@@ -157,7 +178,11 @@ class TestRecordDepositApi:
         created = await client.post("/goals", json=make_goal_payload())
         goal_id = created.json()["id"]
 
-        response = await client.post(f"/goals/{goal_id}/deposits", json={"amount": "50000"})
+        response = await client.post(
+            f"/goals/{goal_id}/deposits",
+            json={"amount": "50000"},
+            headers=deposit_headers(),
+        )
 
         assert response.status_code == 422
 
@@ -168,7 +193,73 @@ class TestRecordDepositApi:
         created = await client.post("/goals", json=make_goal_payload())
         goal_id = created.json()["id"]
 
-        await client.post(f"/goals/{goal_id}/deposits", json=make_deposit_payload(currency="USD"))
+        await post_deposit(client, goal_id, currency="USD")
 
         result = await session.execute(select(func.count()).select_from(TransactionModel))
         assert result.scalar_one() == 0
+
+
+class TestIdempotency:
+    """Durable idempotency against the real UNIQUE constraint (the jewel)."""
+
+    async def test_same_key_twice_creates_one_entry(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """
+        The idempotency proof: two requests with the same key, one entry.
+
+        A network retry must never duplicate money: the second request
+        collides with the UNIQUE constraint, the use case replays the
+        stored entry, and both responses carry the same transaction id.
+        """
+        created = await client.post("/goals", json=make_goal_payload())
+        goal_id = created.json()["id"]
+        key = str(uuid4())
+
+        first = await post_deposit(client, goal_id, headers=deposit_headers(key))
+        second = await post_deposit(client, goal_id, headers=deposit_headers(key))
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert first.json()["id"] == second.json()["id"]
+
+        result = await session.execute(select(func.count()).select_from(TransactionModel))
+        assert result.scalar_one() == 1
+
+    async def test_different_keys_create_two_entries(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        """
+        Different keys are different intentions: both deposits are stored.
+
+        The same amount with two different keys must produce two ledger
+        entries — the idempotency key scopes "same request", not "same
+        amount".
+        """
+        created = await client.post("/goals", json=make_goal_payload())
+        goal_id = created.json()["id"]
+
+        first = await post_deposit(client, goal_id)
+        second = await post_deposit(client, goal_id)
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert first.json()["id"] != second.json()["id"]
+
+        result = await session.execute(select(func.count()).select_from(TransactionModel))
+        assert result.scalar_one() == 2
+
+    async def test_returns_422_without_idempotency_key(self, client: AsyncClient) -> None:
+        """
+        A missing Idempotency-Key header is rejected with 422.
+
+        The header is required (a money endpoint without idempotency
+        protection should not exist); FastAPI validates it before the
+        endpoint runs.
+        """
+        created = await client.post("/goals", json=make_goal_payload())
+        goal_id = created.json()["id"]
+
+        response = await client.post(f"/goals/{goal_id}/deposits", json=make_deposit_payload())
+
+        assert response.status_code == 422

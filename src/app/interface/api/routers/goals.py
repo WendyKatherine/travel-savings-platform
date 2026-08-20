@@ -12,7 +12,7 @@ Business rules live in the use cases, never here.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.use_cases.create_goal import CreateGoalUseCase
@@ -80,14 +80,19 @@ async def get_goal(goal_id: UUID, session: SessionDep) -> GoalResponse:
 
 @router.post("/{goal_id}/deposits", status_code=201, response_model=DepositResponse)
 async def record_deposit(
-    goal_id: UUID, payload: CreateDepositRequest, session: SessionDep
+    goal_id: UUID,
+    payload: CreateDepositRequest,
+    session: SessionDep,
+    idempotency_key: Annotated[UUID, Header()],
 ) -> DepositResponse:
     """
     Record a deposit against an existing goal (append-only ledger entry).
 
     Translates the request into a Money at the boundary, wires both
     Postgres repositories and the RecordDepositUseCase, and returns the
-    created ledger entry as the public API contract.
+    created ledger entry as the public API contract. The Idempotency-Key
+    header is required: a missing or malformed header is rejected by
+    FastAPI with 422 before this function runs.
 
     Raises:
         HTTPException: 404 when no goal exists with the given id.
@@ -102,6 +107,7 @@ async def record_deposit(
         goal_id=goal_id,
         amount=amount,
         recorded_by=payload.recorded_by,
+        idempotency_key=idempotency_key,
     )
 
     if transaction is None:
