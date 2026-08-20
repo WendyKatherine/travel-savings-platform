@@ -64,6 +64,7 @@ class TestRecordDeposit:
 
         result = await use_case.execute(
             goal_id=goal.id,
+            idempotency_key=uuid4(),
             amount=Money("50000", "COP"),
             recorded_by="editor-42",
         )
@@ -80,6 +81,7 @@ class TestRecordDeposit:
         """
         result = await use_case.execute(
             goal_id=uuid4(),
+            idempotency_key=uuid4(),
             amount=Money("50000", "COP"),
             recorded_by="editor-42",
         )
@@ -97,6 +99,7 @@ class TestRecordDeposit:
         with pytest.raises(TravelGoalError, match="non-active"):
             await use_case.execute(
                 goal_id=goal.id,
+                idempotency_key=uuid4(),
                 amount=Money("50000", "COP"),
                 recorded_by="editor-42",
             )
@@ -115,8 +118,28 @@ class TestRecordDeposit:
         with pytest.raises(TravelGoalError, match="currency"):
             await use_case.execute(
                 goal_id=goal.id,
+                idempotency_key=uuid4(),
                 amount=Money("100", "USD"),
                 recorded_by="editor-42",
             )
 
         assert transaction_repo.saved == []
+
+    async def test_forwards_idempotency_key_to_the_repository(
+        self, use_case, goal_repo, transaction_repo
+    ):
+        """
+        The key received by the use case reaches the repository's store.
+        """
+        goal = _make_goal()
+        await goal_repo.save(goal)
+        key = uuid4()
+
+        result = await use_case.execute(
+            goal_id=goal.id,
+            idempotency_key=key,
+            amount=Money("50000", "COP"),
+            recorded_by="editor-42",
+        )
+
+        assert await transaction_repo.get_by_idempotency_key(key) == result
