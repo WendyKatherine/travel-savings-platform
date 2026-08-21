@@ -15,12 +15,19 @@ toward travel packages in installments.
 
 ## Status
 
-First vertical slice shipped and green: `POST /goals` runs end-to-end
-(HTTP → interface → application → domain → infrastructure → Postgres → 201),
-with **48 tests passing** on the full gate (`make check`: ruff + mypy strict +
-pytest). The domain core (`Money`, `TravelGoal`, `Transaction`), the
-create-goal use case, the Postgres repository and HTTP integration tests are
-all in place.
+Two vertical slices shipped and green. The full gate (`make check`: ruff +
+mypy strict + pytest) passes with **69 tests**: 49 unit/application tests
+(deterministic, no Docker) + 20 integration tests against a real Postgres
+(testcontainers + Alembic migrations).
+
+Shipped end-to-end (HTTP → interface → application → domain → infrastructure → Postgres):
+
+- `POST /goals` → 201 — create a savings goal.
+- `GET /goals/{goal_id}` → 200/404 — fetch a goal by id.
+- `POST /goals/{goal_id}/deposits` → 201 — record a deposit on the
+  append-only ledger with **durable idempotency** (UNIQUE key + replay):
+  retrying the same request returns the original entry instead of
+  duplicating it.
 
 ## Architecture
 
@@ -65,8 +72,8 @@ src/app/
 - **Ledger is append-only.** `Transaction` is frozen; a goal's `balance()` is
   always calculated from its transactions, never stored.
 - **Unit of Work at the boundary.** Repositories join transactions but never
-  commit. The `get_db_session` dependency owns commit/rollback, so future
-  operations (deposit + idempotency key) become one atomic transaction.
+  commit. The `get_db_session` dependency owns commit/rollback — this is how
+  deposits + idempotency keys are committed atomically today.
 - **Domain errors are explicit.** `MoneyError`, `TravelGoalError` and
   `TransactionError` inherit from `DomainError`, and the app maps *only*
   `DomainError` to HTTP 400. Pydantic's 422 stays reserved for schema
@@ -129,11 +136,13 @@ uv run pytest tests/integration              # spins up testcontainers
 
 ## API
 
-| Method | Path       | Description                         |
-| ------ | ---------- | ----------------------------------- |
-| GET    | `/healthz` | Liveness (process up)               |
-| GET    | `/readyz`  | Readiness (Postgres + Redis probes) |
-| POST   | `/goals`   | Create a savings goal → 201         |
+| Method | Path                       | Description                                      |
+| ------ | -------------------------- | ------------------------------------------------ |
+| GET    | `/healthz`                 | Liveness (process up)                            |
+| GET    | `/readyz`                  | Readiness (Postgres + Redis probes)              |
+| POST   | `/goals`                   | Create a savings goal → 201                      |
+| GET    | `/goals/{goal_id}`         | Fetch a goal by id → 200/404                     |
+| POST   | `/goals/{goal_id}/deposits` | Record a deposit (requires `Idempotency-Key` header) → 201 |
 
 ## Deployment
 
@@ -143,7 +152,7 @@ arm64 image (e.g. `docker buildx build --platform linux/arm64`).
 
 ## Roadmap
 
-- `RecordDepositUseCase` with **durable idempotency** — ledger entry +
-  idempotency key committed atomically by the existing Unit of Work boundary.
+- ~~Deposits with durable idempotency~~ ✅ shipped — ledger entry + idempotency
+  key committed atomically by the Unit of Work boundary (PRs #8, #9).
 - Passwordless auth (OTP + short-lived tokens).
 - Observability hardening and deployment to a VPS / ACA / Oracle Free Tier.
